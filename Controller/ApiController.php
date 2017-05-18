@@ -1,10 +1,4 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: dev1
- * Date: 18/05/2017
- * Time: 09:50
- */
 
 namespace Munso\IRISGeocoderBundle\Controller;
 
@@ -16,7 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  * Class ApiController
  * @package Munso\IRISGeocoderBundle\Controller
  */
-class ApiController extends Controlller
+class ApiController extends Controller
 {
 
     /**
