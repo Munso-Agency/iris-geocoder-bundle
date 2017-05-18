@@ -23,7 +23,7 @@ class IrisItemRepository extends EntityRepository
         $qb = $this->createQueryBuilder('c');
 
         $qb
-            ->select('c.id, c.name, c.code, c.insee')
+            ->select('c.id, c.name, c.code, c.insee, c.type')
             ->where('TRUE = ST_Contains(c.geom, ST_SetSRID(ST_MakePoint(:lng, :lat), :srid))')
             ->setParameter(':lat', $latitude)
             ->setParameter(':lng', $longitude)

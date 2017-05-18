@@ -20,6 +20,8 @@ ini_set('memory_limit', -1);
  */
 class ImportShapeFileCommand extends ContainerAwareCommand
 {
+    protected $entityName;
+
     public function configure()
     {
         $this
@@ -40,13 +42,12 @@ class ImportShapeFileCommand extends ContainerAwareCommand
             );
     }
 
-    public function getEntityManager()
+    protected function getEntityManager()
     {
         return $this->getContainer()->get('munso.iris_geocoder_entity_manager');
     }
 
-
-    public function getTableName()
+    protected function getTableName()
     {
         $metadaClass = $this->getEntityManager()->getClassMetadata(
             $this->getContainer()->getParameter('munso.iris_geocoder.entity_name')
@@ -57,14 +58,14 @@ class ImportShapeFileCommand extends ContainerAwareCommand
 
     public function execute(InputInterface $input, OutputInterface $output)
     {
-        $shapeFile = realpath($input->getArgument('shapefile'));
 
-        $this->getEntityManager()->getConnection()->getConfiguration()->setSQLLogger(null);
-        $dumpFilepath = $this->getContainer()->getParameter('kernel.cache_dir').DIRECTORY_SEPARATOR.'shapefile.sql';
+        $this->entityName = $this->getContainer()->getParameter('munso.iris_geocoder.entity_name');
+
+        $shapeFile = realpath($input->getArgument('shapefile'));
 
         if (!file_exists($shapeFile)) {
             throw new \InvalidArgumentException(
-                sprintf("SQL file '<info>%s</info>' does not exist.", $shapeFile)
+                sprintf("SQL file '<info>%s</info>' does not exist.", $input->getArgument('shapefile'))
             );
         } elseif (!is_readable($shapeFile)) {
             throw new \InvalidArgumentException(
@@ -72,90 +73,62 @@ class ImportShapeFileCommand extends ContainerAwareCommand
             );
         }
 
+        $DBALConnection = $this->getEntityManager()->getConnection();
+        $DBALConnection->getConfiguration()->setSQLLogger(null);
+
         if ($input->getOption('truncate')) {
-            $this->truncateTable($output);
+            $this->truncateTable($DBALConnection, $output);
         }
 
         try {
-            $cmdArguments = array(
+            $shpArgs = array(
                 // '-W "latin1"',
                 '-e',
                 '-a', //append to existing base
-                '-N skip' //null policy
+                '-N skip', //null policy
+                '-s 4326' //Srid
             );
             $importCmd = sprintf(
-                'shp2pgsql %s -I %s %s > %s',
-                implode(' ', $cmdArguments),
+                'shp2pgsql %s -I %s %s | psql -U %s -d %s ',
+                implode(' ', $shpArgs),
                 $shapeFile,
                 $this->getTableName(),
-                $dumpFilepath
+                $DBALConnection->getUsername(),
+                $DBALConnection->getDatabase()
             );
-            $process = new Process($importCmd);
 
-            $output->writeln("<info>Executing dump</info>");
-
+            $output->writeln("<info>Importing file</info>");
             if ($output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
-                $output->writeln(sprintf('<info> %s</info>', $importCmd));
-            }
-            $process->mustRun();
-
-            $output->writeln(sprintf('.shp file dumped into <info>%s</info>', $dumpFilepath));
-
-            if (!$input->getOption('only-dump')) {
-                $this->executeDoctrineImport($dumpFilepath, $input, $output);
+                $output->writeln(sprintf('Executing command<info> %s</info>', $importCmd));
             }
 
+            $process = new Process($importCmd);
+            $process
+                ->setTimeout(3600*2)
+                ->mustRun();
+
+            $output->writeln(sprintf('.shp file was imported into <info>%s</info>', $DBALConnection->getDatabase()));
         } catch (ProcessFailedException $exception) {
             $output->writeln(sprintf('<error>%s</error>', $exception->getMessage()));
-        } finally {
-            if (!$input->getOption('only-dump')) {
-                $fs = new FileSystem();
-                $fs->remove(array($dumpFilepath));
-            }
         }
 
     }
 
-    protected function importBatchFile($file, InputInterface $input, OutputInterface $output)
+    protected function truncateTable($connection, OutputInterface $output)
     {
-
-    }
-
-
-    protected function executeDoctrineImport($file, InputInterface $input, OutputInterface $output)
-    {
-        $command = $this->getApplication()->find('doctrine:database:import');
-        $arguments = array(
-            'command' => 'doctrine:database:import',
-            'file' => $file,
-            '--connection' => $input->getOption('connection'),
-            '-vvv' => ($output->getVerbosity() > OutputInterface::VERBOSITY_VERBOSE),
-        );
-
-        $greetInput = new ArrayInput($arguments);
-
-        return $command->run($greetInput, $output);
-    }
-
-
-    protected function truncateTable(OutputInterface $output)
-    {
-        $connection = $this->getEntityManager()->getConnection();
-        $entityName = $this->getContainer()->getParameter('munso.iris_geocoder.entity_name');
-        $sequenceName = $this->getEntityManager()->getClassMetadata(
-            $this->getContainer()->getParameter('munso.iris_geocoder.entity_name')
-        )->getSequenceName($connection->getDatabasePlatform());
-
+        $sequenceName = $this->getEntityManager()
+            ->getClassMetadata($this->entityName)
+            ->getSequenceName($connection->getDatabasePlatform());
 
         $connection->beginTransaction();
         try {
-            $connection->query('DELETE FROM '.$entityName.';');
+            $connection->query('DELETE FROM '.$this->entityName.';');
             $connection->query('ALTER SEQUENCE '.$sequenceName.'  RESTART WITH  1;');
             $connection->commit();
-            $output->writeln(sprintf('<info>Table %s was successfully truncated.</info>', $this->getTableName()));
+            $output->writeln(sprintf('<info>Table was successfully truncated.</info>'));
         } catch (\Exception $e) {
             $connection->rollback();
-            $output->writeln(sprintf('<error>Error during truncate operation : %s </error>', $this->getTableName()));
+            $output->writeln(sprintf('<error>Error during truncate operation : %s </error>', $e->getMessage()));
         }
     }
 
