@@ -14,10 +14,7 @@ use Doctrine\ORM\Mapping as ORM;
  * Class IrisItem
  * @package Munso\IRISGeocoderBundle\Entity
  * @ORM\Table(
- *     name="public.munso_iris",
- *     indexes={
- *          @ORM\Index(name="idx_geom", columns="geom", flags={"spatial"})
- *     }
+ *     name="public.munso_iris"
  * )
  * @ORM\Entity(repositoryClass="Munso\IRISGeocoderBundle\Repository\IrisItemRepository")
  */
