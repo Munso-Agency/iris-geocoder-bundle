@@ -1,0 +1,4 @@
+munso_iris_geocoder_search:
+    path:     /search
+    defaults: { _controller: MunsoIRISGeocoderBundle:Api:search }
+    methods: [ GET ]

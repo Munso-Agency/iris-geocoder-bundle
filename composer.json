@@ -1,0 +1,22 @@
+{
+  "name": "munso/iris-geocoder-bundle",
+  "type": "symfony-bundle",
+  "keywords": ["IRIS", "INSEE", "Geocoder"],
+  "description": "French IRIS INSSE code address Geocoder",
+  "homepage": "https://github.com/Munso-Agency/iris-geocoder-bundle",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Renaud Jacquot",
+      "email": "renaudjacquot@munso.co"
+    }
+  ],
+  "autoload": {
+    "psr-4": { "Munso\\IRISGeocoderBundle\\": "" }
+  },
+  "require": {
+    "php": "^5.3 || ^7.0",
+    "kriswallsmith/buzz":  "^0.15",
+    "jsor/doctrine-postgis": "~1"
+  }
+}

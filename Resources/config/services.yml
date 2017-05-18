@@ -1,0 +1,15 @@
+parameters:
+    munso.iris_geocoder.entity_manager.name: 'geocodage'
+    munso.iris_geocoder.entity_name: 'MunsoIRISGeocoderBundle:IrisItem'
+    munso.iris_geocoder.srid: 4326
+
+services:
+    munso.iris_geocoder_entity_manager:
+        class: %doctrine.orm.entity_manager.class%
+        factory: 'doctrine:getManager'
+        arguments: ["%munso.iris_geocoder.entity_manager.name%"]
+
+    munso.iris_geocoder:
+        class: Munso\IRISGeocoderBundle\Manager\GeolocationManager
+        arguments:
+            ["@munso.iris_geocoder_entity_manager", "%munso.iris_geocoder.entity_name%"]
