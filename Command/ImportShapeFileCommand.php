@@ -36,8 +36,7 @@ class ImportShapeFileCommand extends ContainerAwareCommand
                         'Set doctrine connection name',
                         'psql'
                     ),
-                    new InputOption('only-dump', null, InputOption::VALUE_NONE, 'Disable import SQL into database'),
-                    new InputOption('truncate', null, InputOption::VALUE_NONE, 'Truncate table'),
+                    new InputOption('append', null, InputOption::VALUE_NONE, 'Append data to an existing table'),
                 )
             );
     }
@@ -76,7 +75,7 @@ class ImportShapeFileCommand extends ContainerAwareCommand
         $DBALConnection = $this->getEntityManager()->getConnection();
         $DBALConnection->getConfiguration()->setSQLLogger(null);
 
-        if ($input->getOption('truncate')) {
+        if (!$input->getOption('append')) {
             $this->truncateTable($DBALConnection, $output);
         }
 
@@ -84,10 +83,15 @@ class ImportShapeFileCommand extends ContainerAwareCommand
             $shpArgs = array(
                 // '-W "latin1"',
                 '-e',
-                '-a', //append to existing base
                 '-N skip', //null policy
                 '-s 4326' //Srid
             );
+
+            //append to existing base
+            if ($input->getOption('truncate')) {
+                $shpArgs[] = '-a';
+            }
+
             $importCmd = sprintf(
                 'shp2pgsql %s -I %s %s | psql -U %s -d %s ',
                 implode(' ', $shpArgs),
